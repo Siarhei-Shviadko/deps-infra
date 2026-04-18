@@ -1,0 +1,33 @@
+{{- if .Values.rabbitmq.rabbitmq_service.nodeport.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-nodeport
+  labels:
+    {{- include "deps-services.labels" . | nindent 4 }}-rabbitmq
+spec:
+  type: NodePort
+  ports:
+    - port: {{ .Values.rabbitmq.rabbitmq_service.port }}
+      targetPort: {{ .Values.rabbitmq.rabbitmq_service.portname }}
+      protocol: {{ .Values.rabbitmq.rabbitmq_service.protocol }}
+      name: {{ .Values.rabbitmq.rabbitmq_service.portname }}
+      nodePort: {{ .Values.rabbitmq.rabbitmq_service.nodeport.nodePort }}
+    - port: {{ .Values.rabbitmq.management_service.port }}
+      targetPort: {{ .Values.rabbitmq.management_service.portname }}
+      protocol: {{ .Values.rabbitmq.management_service.protocol }}
+      name: {{ .Values.rabbitmq.management_service.portname }}
+      nodePort: {{ .Values.rabbitmq.management_service.nodeport.nodePort }}
+    {{- if .Values.rabbitmq_settings.TLS_ENABLED }}
+    - port: {{ .Values.rabbitmq.rabbitmq_tls_service.port }}
+      targetPort: {{ .Values.rabbitmq.rabbitmq_tls_service.portname }}
+      protocol: {{ .Values.rabbitmq.rabbitmq_tls_service.protocol }}
+      name: {{ .Values.rabbitmq.rabbitmq_tls_service.portname }}
+    - port: {{ .Values.rabbitmq.management_tls_service.port }}
+      targetPort: {{ .Values.rabbitmq.management_tls_service.portname }}
+      protocol: {{ .Values.rabbitmq.management_tls_service.protocol }}
+      name: {{ .Values.rabbitmq.management_tls_service.portname }}
+    {{- end }}
+  selector:
+    {{- include "deps-services.selectorLabels" . | nindent 4 }}-rabbitmq
+{{- end }}

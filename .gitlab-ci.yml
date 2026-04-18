@@ -1,0 +1,188 @@
+stages:
+  - linters
+  - deploy
+  - rollback
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+  DEPLOY_DEV_BRANCH: develop
+  DEPLOY_MASTER_BRANCH: master
+
+  K8S_DEV_NAMESPACE: deps-develop
+  K8S_QA_NAMESPACE: deps-qa
+  K8S_DEMO_NAMESPACE: deps-demo
+  K8S_DS_NAMESPACE: dev-ds-sandbox
+  K8S_INS_NAMESPACE: deps-insurance
+  K8S_PRESALE_NAMESPACE: deps-presale
+
+  RABBITMQ_TAG: "3.11.3-management-alpine"
+#  REDIS_TAG: "5.0.1-alpine"
+
+helmlint:
+  stage: linters
+  extends:
+    - .k8s-defaults
+  before_script: []
+  script:
+    - helm lint .helm
+    - helm template $CI_PROJECT_NAME .helm --output-dir chart
+  artifacts:
+    paths:
+      - chart
+    expire_in: 12 hours
+  only:
+    changes:
+      - .helm/*
+
+deploy-dev-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$K3S_HU_API_URL"
+    K8S_CI_TOKEN: "$K3S_HU_CI_TOKEN_DEV"
+    NAMESPACE: $K8S_DEV_NAMESPACE
+  except:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_MASTER_BRANCH
+  when: manual
+
+rollback:
+  stage: rollback
+  extends:
+    - .k8s-rollback
+  variables:
+    COMMAND: 'helm-rollback'
+    NAMESPACE: $K8S_DEV_NAMESPACE
+    K8S_API_ENDPOINT: "$K3S_HU_API_URL"
+    K8S_CI_TOKEN: "$K3S_HU_CI_TOKEN_DEV"
+  needs: ["deploy-dev-k3s"]
+  when: manual
+  retry: 0
+  environment:
+    name: $K8S_DEV_NAMESPACE
+    action: stop
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+
+deploy-qa-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$K3S_HEAVY_QA_API_URL"
+    K8S_CI_TOKEN: "$K3S_HEAVY_CI_TOKEN_QA"
+    ADDITIONAL_VALUES: "--values .helm/values.qa.yaml"
+    NAMESPACE: $K8S_QA_NAMESPACE
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+deploy-demo-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$DEMO_K8S_API_URL"
+    K8S_CI_TOKEN: "$DEMO_K8S_CI_TOKEN"
+    ADDITIONAL_VALUES: "--values .helm/values.demo.yaml"
+    NAMESPACE: $K8S_DEMO_NAMESPACE
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+deploy-ds-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$HEAVY_K3S_API_URL_DS"
+    K8S_CI_TOKEN: "$HEAVY_K3S_CI_TOKEN_DS"
+    ADDITIONAL_VALUES: "--values .helm/values.ds.yaml"
+    NAMESPACE: $K8S_DS_NAMESPACE
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+deploy-ins-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$K3S_HEAVY_INS_API_URL"
+    K8S_CI_TOKEN: "$K3S_HEAVY_CI_TOKEN_INS"
+    ADDITIONAL_VALUES: "--values .helm/values.ins.yaml"
+    NAMESPACE: $K8S_INS_NAMESPACE
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+deploy-other-k3s-hu:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$K3S_HU_API_URL_OTHER"
+    K8S_CI_TOKEN: "$K3S_HU_CI_TOKEN_OTHER"
+    ADDITIONAL_VALUES: "--values .helm/values.other.yaml"
+    NAMESPACE: $K8S_NAMESPACE_OTHER
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+deploy-presale-k3s:
+  stage: deploy
+  extends:
+    - .k8s-defaults
+  variables:
+    K8S_API_ENDPOINT: "$K3S_HEAVY_PRESALE_API_URL"
+    K8S_CI_TOKEN: "$K3S_HEAVY_CI_TOKEN_PRESALE"
+    ADDITIONAL_VALUES: "--values .helm/values.presale.yaml"
+    NAMESPACE: $K8S_PRESALE_NAMESPACE
+  only:
+    variables:
+      - $CI_COMMIT_BRANCH == $DEPLOY_DEV_BRANCH
+  when: manual
+
+
+.k8s-defaults:
+  image: $REPOSITORY_PROXY_URL/docker-proxy/alpine/k8s:1.19.8
+  tags:
+    - kubernetes
+  script:
+    - kubectl config set-cluster k8s --insecure-skip-tls-verify=true --server=$K8S_API_ENDPOINT
+    - kubectl config set-credentials gitlab-ci --token=$K8S_CI_TOKEN
+    - kubectl config set-context gitlab-ci --cluster=k8s --user=gitlab-ci
+    - kubectl config use-context gitlab-ci
+    - helm upgrade --install $CI_PROJECT_NAME .helm
+        --values .helm/values.yaml $ADDITIONAL_VALUES
+        --set rabbitmq.image.tag="$RABBITMQ_TAG"
+        --timeout 300s
+        --atomic
+        --wait
+        --debug
+        --namespace $NAMESPACE
+
+.k8s-rollback:
+  image: $REPOSITORY_PROXY_URL/docker-proxy/alpine/k8s:1.19.8
+  tags:
+    - kubernetes
+  script:
+    - apk add --no-cache make
+    - kubectl config set-cluster k8s --insecure-skip-tls-verify=true --server=$K8S_API_ENDPOINT
+    - kubectl config set-credentials gitlab-ci --token=$K8S_CI_TOKEN
+    - kubectl config set-context gitlab-ci --cluster=k8s --user=gitlab-ci
+    - kubectl config use-context gitlab-ci
+    - make $COMMAND
+  after_script:
+    - kubectl -n $NAMESPACE logs -l "app.kubernetes.io/instance=$CI_PROJECT_NAME,helm-job=logs" --tail=-1

@@ -1,0 +1,45 @@
+rabbitmq:
+  resources:
+    limits:
+      cpu:
+      memory:
+    requests:
+      cpu:
+      memory:
+  rabbitmq_service:
+    nodeport:
+      enabled: true
+      nodePort: 31672
+    type: ClusterIP
+    portname: 'rm-cn-prt'
+    port: 5672
+    protocol: TCP
+  management_service:
+    nodeport:
+      enabled: true
+      nodePort: 32672
+    port: 15672
+    portname: 'rm-svc-prt'
+    protocol: TCP
+
+# redis:
+#   resources:
+#     limits:
+#       cpu:
+#       memory:
+#     requests:
+#       cpu:
+#       memory:
+#   service:
+#     nodeport:
+#       enabled: true
+#       nodePort: 31379
+#     type: ClusterIP
+#     portname: 'rs-svc-prt'
+#     port: 6379
+#     protocol: TCP
+
+nodeSelector:
+
+affinity: {}
+

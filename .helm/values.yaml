@@ -1,0 +1,139 @@
+# Default values for deps-services.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Secrets declaration
+# Precreate them before deploy
+# kubectl create secret generic rabbitmq-password --from-literal=rabbitmq-password='<deps-rabbitmq-user-password>'
+# kubectl create secret generic redis-password --from-literal="REDIS_PASSWORD=<password>"
+secrets:
+  rabbitmq_password:
+    secretName: rabbitmq-password
+  # redis_password:
+  #   secretName: redis-password
+  rabbitmq_config:
+    secretName: rabbitmq-config
+  security_certs:
+    secretName: security-certs
+
+rabbitmq:
+  replicaCount: 1
+  podAnnotations: {}
+  image:
+    repository: 'artifactory-host/base/rabbitmq'
+    tag: '3.10.7-management-alpine'
+    pullPolicy: IfNotPresent
+  imagePullSecrets: artifactory
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 500Mi
+    requests:
+      cpu: 0.25
+      memory: 250Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  rabbitmq_service:
+    nodeport:
+      enabled: true
+      nodePort: 31672
+    type: ClusterIP
+    portname: 'rm-cn-prt'
+    port: 5672
+    protocol: TCP
+  rabbitmq_tls_service:
+    nodeport:
+      enabled: true
+      nodePort: 31671
+    type: ClusterIP
+    portname: 'rm-tls-cn-prt'
+    port: 5671
+    protocol: TCP
+  management_service:
+    nodeport:
+      enabled: true
+      nodePort: 32672
+    port: 15672
+    portname: 'rm-svc-prt'
+    protocol: TCP
+  management_tls_service:
+    nodeport:
+      enabled: true
+      nodePort: 32671
+    port: 15671
+    portname: 'rm-tls-svc-prt'
+    protocol: TCP
+
+nodeSelector:
+
+tolerations: []
+
+affinity: {}
+
+certs_location:
+  certs_default_path: "/tmp/ssl"
+
+rabbitmq_settings:
+  RABBITMQ_DEFAULT_VHOST: 'deps'
+  RABBITMQ_DEFAULT_USER: 'deps-rabbitmq'
+
+  TLS_ENABLED: false
+
+# redis_settings:
+#   REDIS_HOST: 'redis'
+#   REDIS_PORT: '6379'
+#   REDIS_DB: '0'
+
+create_secrets:
+  enabled: false
+
+secrets_values:
+  # redis_password_secret: "redis"
+  rabbitmq_password_secret: "deps-rabbitmq-password"
+  document_sentry_dsn : ""
+  file_storage_external_url: "https://localhost/api/v1/storage/file"
+  api_key: ""
+  aws_access_key_id: ""
+  aws-secret-access-key: ""
+  file_storage_database_user: ""
+  file_storage_database_password: ""
+  sentry_dsn_file_storage: ""
+  frontend_service_backend_url: "https://localhost/api"
+  frontend_service_tables_url: "https://localhost/api/tables"
+  frontend_service_corleone_url: "https://localhost/api/corleone"
+  frontend_service_ocr_url: "https://localhost/api/ocr"
+  frontend_service_keycloak_url: "https://localhost/auth/realms/Test_realm/protocol/openid-connect/certs"
+  frontend_service_sentry_dsn: ""
+  ocr_aws_credentials:
+  aws_access_key_id  : ""
+  aws_secret_access_key: ""
+  aws_region_name: ""
+  upstream_auth_url: "https://localhost/auth/realms/Test_realm/protocol/openid-connect/certs"
+  gcp_vision_auth_key: ""
+  sentry_dsn_ocr : ""
+  sentry_dsn_preprocess: ""
+  azure_form_recognizer_api : ""
+  azure_form_recognizer_key: ""
+  sentry_dsn_tables: ""
+  sentry_dsn_validation: ""
+  abbyy_password: ""
+  app_secret_key: ""
+  celery_backend_url: ""
+  celery_broker_url: ""
+  keycloak_certs_endpoint: "https://localhost/auth/realms/Test_realm/protocol/openid-connect/certs"
+  postgres_user_secret: ""
+  postgres_work_user_secret: ""
+  postgres_host: ""
+  sentry_dsn_corleone: ""
+  auth_enabled: ""
+  access_mode: ""
+  access_mode: ""
+  nginx_ssl_certificate: ""
+  postgres_validation_user_secret: ""
+  tls-secret-ingress: ""
+  sentry_dsn_corleone: ""
+  sentry_dsn_document_api: ""
+  rabbitmq_url: ""
+  corleone_db_user: ""
+  corleone_db_password: ""
